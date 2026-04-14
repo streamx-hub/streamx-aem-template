@@ -1,0 +1,260 @@
+default:
+  environment:
+    STREAMX_BLUEPRINTS_KEY_VALUE_STATE_REPOSITORY_BACKEND: rocksdb
+    STREAMX_BLUEPRINTS_KEY_VALUE_STATE_REPOSITORY_ROCKSDB_PATH: /var/lib/rocksdb
+
+descriptors:
+  relay:
+    type: processing
+    containers:
+      service:
+        incoming:
+          events: {}
+        outgoing:
+          relayed-events: {}
+
+  indexable-resources-producer:
+    type: processing
+    containers:
+      processor:
+        image: ghcr.io/streamx-com/streamx-blueprints/indexable-resources-producer:3.0.17-native
+        incoming:
+          pages: {}
+          fragments: {}
+        outgoing:
+          indexable-resources: {}
+          indexable-resource-fragments: {}
+
+  opensearch-sink:
+    type: edge
+    volumes:
+      opensearch-data:
+        size: 10Gi
+        persistent: true
+      rocksdb:
+        size: 5Gi
+        persistent: true
+    containers:
+      sink:
+        image: ghcr.io/streamx-com/streamx-blueprints/opensearch-sink:3.0.17-native
+        incoming:
+          indexable-resources:
+            initState: delta
+          indexable-resource-fragments:
+            initState: delta
+        autoRef:
+          - from: indexable-resource-fragments
+            to: indexable-resource-fragments-state
+            using: sync-state
+        servicePorts:
+          - 8082:8080
+        volumes:
+          - opensearch-data:/usr/share/opensearch/data
+          - rocksdb:/var/lib/rocksdb
+        environment:
+          QUARKUS_ELASTICSEARCH_HOSTS: ${STREAMX_SERVICE_ID}.opensearch:9201
+      opensearch:
+        image: registry.prod-ext.streamx.cloud/streamx-docker-hub-public-proxy/opensearchproject/opensearch:2.16.0
+        servicePorts:
+          - 9201:9201
+        volumes:
+          - opensearch-data:/usr/share/opensearch/data
+        environment:
+          network.host: 0.0.0.0
+          http.port: "9201"
+          discovery.type: single-node
+          DISABLE_SECURITY_PLUGIN: "true"
+
+  web-server-sink:
+    type: edge
+    volumes:
+      repository-volume:
+        size: 5Gi
+    containers:
+      sink:
+        image: ghcr.io/streamx-com/streamx-blueprints/web-server-sink:3.0.17-native
+        incoming:
+          resources: {}
+        servicePorts:
+          - 8081:8080
+        volumes:
+          - repository-volume:/srv/www
+        environment:
+          STREAMX_BLUEPRINTS_WEB_SERVER_SINK_STORAGE_ROOT_DIRECTORY: /srv/www
+      webserver:
+        image: docker.io/library/nginx:1.26.0
+        servicePorts:
+          - 8084:80
+        volumes:
+          - repository-volume:/usr/share/nginx/html
+
+networking:
+  httpRoutes:
+    ingestion-route:
+      rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /
+          backendRefs:
+            - name: ingestion/rest-ingestion
+              port: 8080
+    web-server-and-search-route:
+      rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /search
+          backendRefs:
+            - name: edge/search-sink
+              port: 8082
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /
+          backendRefs:
+            - name: edge/web-server-sink
+              port: 8084
+
+sources:
+  github:
+    outgoing:
+      - ref: inbox.pages
+        produces:
+          - com.streamx.blueprints.page.published.v1
+          - com.streamx.blueprints.page.unpublished.v1
+      - ref: inbox.assets
+        produces:
+          - com.streamx.blueprints.asset.published.v1
+          - com.streamx.blueprints.asset.unpublished.v1
+      - ref: inbox.web-resources
+        produces:
+          - com.streamx.blueprints.web-resource.published.v1
+          - com.streamx.blueprints.web-resource.unpublished.v1
+      - ref: inbox.fragments
+        produces:
+          - com.streamx.blueprints.fragment.published.v1
+          - com.streamx.blueprints.fragment.unpublished.v1-
+  aem:
+    outgoing:
+      - ref: inbox.pages
+        produces:
+          - com.streamx.blueprints.page.published.v1
+          - com.streamx.blueprints.page.unpublished.v1
+      - ref: inbox.assets
+        produces:
+          - com.streamx.blueprints.asset.published.v1
+          - com.streamx.blueprints.asset.unpublished.v1
+      - ref: inbox.web-resources
+        produces:
+          - com.streamx.blueprints.web-resource.published.v1
+          - com.streamx.blueprints.web-resource.unpublished.v1
+      - ref: inbox.fragments
+        produces:
+          - com.streamx.blueprints.fragment.published.v1
+          - com.streamx.blueprints.fragment.unpublished.v1
+
+ingestion:
+  rest-ingestion:
+    containers:
+      proxy: {}
+
+processing:
+  web-resources-relay:
+    descriptor: relay
+    containers:
+      service:
+        incoming:
+          events:
+            ref: inbox.web-resources
+        outgoing:
+          relayed-events:
+            ref: outbox.web-resources
+
+  assets-relay:
+    descriptor: relay
+    containers:
+      service:
+        incoming:
+          events:
+            ref: inbox.assets
+        outgoing:
+          relayed-events:
+            ref: outbox.assets
+
+  pages-relay:
+    descriptor: relay
+    containers:
+      service:
+        incoming:
+          events:
+            ref: inbox.pages
+        outgoing:
+          relayed-events:
+            ref: outbox.pages
+
+  fragments-relay:
+    descriptor: relay
+    containers:
+      service:
+        incoming:
+          events:
+            ref: inbox.fragments
+        outgoing:
+          relayed-events:
+            ref: outbox.fragments
+
+  indexable-resources-producer:
+    descriptor: indexable-resources-producer
+    containers:
+      processor:
+        incoming:
+          pages:
+            ref: inbox.pages
+          fragments:
+            ref: inbox.fragments
+        outgoing:
+          indexable-resources:
+            ref: outbox.indexable-resources
+          indexable-resource-fragments:
+            ref: outbox.indexable-resource-fragments
+        environmentFrom:
+          configs:
+            - indexable-resources-producer.properties
+
+edge:
+  search-sink:
+    descriptor: opensearch-sink
+    containers:
+      sink:
+        incoming:
+          indexable-resources:
+            ref: outbox.indexable-resources
+          indexable-resource-fragments:
+            ref: outbox.indexable-resource-fragments
+        volumesFrom:
+          configs:
+            - opensearch/service-init:/deployments/opensearch/service-init/additional
+        environmentFrom:
+          secrets:
+            - encrypted/search-sink.properties
+
+      opensearch:
+        environmentFrom:
+          secrets:
+            - encrypted/search-sink-opensearch.properties
+
+  web-server-sink:
+    descriptor: web-server-sink
+    containers:
+      sink:
+        incoming:
+          resources:
+            ref: outbox.pages,outbox.assets,outbox.web-resources,outbox.fragments
+        environmentFrom:
+          configs:
+            - web-server-sink.properties
+      webserver:
+        volumesFrom:
+          configs:
+            - nginx_conf/default.conf:/etc/nginx/conf.d/default.conf
