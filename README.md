@@ -1,10 +1,11 @@
 # StreamX + Adobe Experience Manager Template
 
-This project demonstrates how to use **StreamX as a static site generator** for content managed in AEM, with additional capabilities like search indexing.
+This project demonstrates how to use **StreamX as a content delivery and rendering layer for AEM content**, with additional capabilities like search indexing.
 
 The setup focuses on:
 
-* generating **static pages from AEM**
+* generating **event-driven pages from AEM content**
+* exposing content through the **delivery layer at the edge**
 * indexing content in **StreamX Search**
 
 ---
@@ -13,7 +14,8 @@ The setup focuses on:
 
 Content is authored in AEM and delivered to StreamX using the StreamX AEM Connector. StreamX then:
 
-* generates static pages
+* generates **event-driven pages**
+* exposes them via the **delivery layer at the edge**
 * indexes content for search
 
 ---
@@ -44,11 +46,12 @@ For detailed setup instructions, refer to the connector repository.
 ## How it works
 
 1. Content is created and managed in AEM
-2. StreamX Connector sends content to StreamX
+2. StreamX Connector sends content events to StreamX
 3. StreamX:
 
-    * generates static pages
-    * indexes content for search
-4. The final site is served as a static website
+   * generates **event-driven pages**
+   * serves them through the **delivery layer at the edge**
+   * indexes content for search
+4. The final experience is delivered via the edge layer, not as static site output
 
 
