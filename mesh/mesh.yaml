@@ -17,7 +17,7 @@ descriptors:
     type: processing
     containers:
       processor:
-        image: ghcr.io/streamx-com/streamx-blueprints/indexable-resources-producer:3.0.18-native
+        image: ghcr.io/streamx-com/streamx-blueprints/indexable-resources-producer:3.0.19-native
         incoming:
           pages: {}
           fragments: {}
@@ -36,16 +36,12 @@ descriptors:
         persistent: true
     containers:
       sink:
-        image: ghcr.io/streamx-com/streamx-blueprints/opensearch-sink:3.0.18-native
+        image: ghcr.io/streamx-com/streamx-blueprints/opensearch-sink:3.0.19-native
         incoming:
           indexable-resources:
             initState: delta
           indexable-resource-fragments:
             initState: delta
-        autoRef:
-          - from: indexable-resource-fragments
-            to: indexable-resource-fragments-state
-            using: sync-state
         servicePorts:
           - 8082:8080
         volumes:
@@ -72,7 +68,7 @@ descriptors:
         size: 5Gi
     containers:
       sink:
-        image: ghcr.io/streamx-com/streamx-blueprints/web-server-sink:3.0.18-native
+        image: ghcr.io/streamx-com/streamx-blueprints/web-server-sink:3.0.19-native
         incoming:
           resources: {}
         servicePorts:
