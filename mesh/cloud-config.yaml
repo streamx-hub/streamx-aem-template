@@ -1,0 +1,18 @@
+global:
+  services:
+    edge:
+      search-sink:
+        stateful: true
+        replicas: 2
+      web-server-sink:
+        stateful: true
+        replicas: 2
+clusters:
+  eu-west-par-processing:
+    enabled: true
+  eu-west-par-edge:
+    enabled: true
+  streamx-labs-cn-beijing-edge:
+    enabled: true
+  streamx-labs-cn-east-sha-edge:
+    enabled: true
