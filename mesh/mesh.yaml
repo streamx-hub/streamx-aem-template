@@ -6,6 +6,7 @@ default:
 descriptors:
   relay:
     type: processing
+    serviceUnits: 0.25
     containers:
       service:
         incoming:
@@ -15,6 +16,7 @@ descriptors:
 
   indexable-resources-producer:
     type: processing
+    serviceUnits: 0.5
     containers:
       processor:
         image: ghcr.io/streamx-com/streamx-blueprints/indexable-resources-producer:3.0.19-native
@@ -27,6 +29,7 @@ descriptors:
 
   opensearch-sink:
     type: edge
+    serviceUnits: 4.0
     volumes:
       opensearch-data:
         size: 10Gi
@@ -63,6 +66,7 @@ descriptors:
 
   web-server-sink:
     type: edge
+    serviceUnits: 1.0
     volumes:
       repository-volume:
         size: 5Gi
